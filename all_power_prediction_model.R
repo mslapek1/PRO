@@ -20,14 +20,22 @@ df$House_metering <- df$Global_active_power*1000/60
 #agregegation
 df <- df %>%
   group_by(day=floor_date(Date, "day")) %>%
-  summarise( Global_intensity=sum(House_metering))
+  summarise( House_metering=sum(House_metering))
 
-
+#date data enginirning
 df$day_of_week <- as.numeric( format( df$day, "%w"))
+
+#checked: year is not singificat
+#df$year <- as.numeric( format( df$day, "%Y")) - 2000
+
+#can be assumed that day of week is irrelewant
+plot(House_metering~day, df, 
+     col=df$day_of_week, pch=df$day_of_week,
+     main="power usage by the day of the week")
 
 #### na replace
 #na will be raplaced with mean of 4 neigbors in the same week_day (-14,-7,+7,+14)
-dfGi <- df$Global_intensity
+dfGi <- df$House_metering
 
 na_vec <- which( is.na(dfGi))
 n <- length(dfGi)
@@ -66,20 +74,26 @@ for (i in na_vec) {
 #where all na-value replaced?
 all(!is.na(dfGi))
 
-df$Global_intensity <- dfGi
+df$House_metering <- dfGi
 
 df_save <- df
-df <- df_save
+
+#reaches best adjR^2 in 120 days
+i<-n
+df <- df_save[(n-i):n,]
 
 #viual check if replace points are good with model
-plot(df$day, df$Global_intensity)
+plot(df$day, df$House_metering,
+     main="replaced points in red")
 df_na <- df[na_vec,]
-points(df_na$day, df_na$Global_intensity, col="red")
+points(df_na$day, df_na$House_metering, 
+       col="red")
 
 ####modeling
 #assumptions:
-#1.periodic poweer usage with pick ~01.01
-#2.day of week inrelewant
+#1.periodic poweer usage with pick ~14.01
+#2.day of week are inrelewant
+#3.spring and autum behave the same
 
 #day counting from begining of the year
 #[1,365] -> [0,2pi] day 366 i thaken into consideration
@@ -92,27 +106,37 @@ funtion_day_to_cos_rad_of_day_of_year <- function(v_day){
   
 }
 
-df$cos_day_of_year_in_rad <- funtion_day_to_cos_rad_of_day_of_year(df$day)
+funtion_day_week_to_cos <- function(week){
+  
+  day_week_in_rad <- week / 7 * 2*pi
+  return( cos(day_week_in_rad))
+  
+}
+#model which starts from 01.01: adjR^2 = 0.367
+#model which starts from 14.01: adjR^2 = 0.39
+#model which starts from 14.01
+# and week taken into acount  : adjR^2 = 0.408
 
-plot(Global_intensity~cos_day_of_year_in_rad, df)
+#add month for making the 14.01 the zero day
+df$cos_day_of_year_in_rad <- funtion_day_to_cos_rad_of_day_of_year( df$day %m+% days(-14))
+
+df$cos_day_week_in_rad <- funtion_day_week_to_cos( df$day_of_week)
 
 #linear model can be aplied
-model_l <- lm(Global_intensity~cos_day_of_year_in_rad, df)
+model_l <- lm(House_metering~cos_day_of_year_in_rad,df)
 
-summary(model_l)
 
-plot(Global_intensity~cos_day_of_year_in_rad, df)
+plot(House_metering~cos_day_of_year_in_rad, df,
+     main="model in red")
 abline(model_l,col = 'red')
 
 
 #plot in normal
-pred <- predict(model_l, data.frame( cos_day_of_year_in_rad = df$cos_day_of_year_in_rad))
+pred <- predict(model_l, df[,c("cos_day_of_year_in_rad")])
 
-plot(df$day, df$Global_intensity)
+plot(df$day, df$House_metering,
+     main="model in red")
 points(df$day, pred, col="red", cex=0.1)
 
-
-
-
-
+summary(model_l)
 
