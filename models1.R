@@ -52,3 +52,73 @@ df <- data.frame(p1 = p1$predictions, p2 = p2)
 
 
 
+# liczenie taryf czy sie opłaca
+library(dplyr)
+taryfa_Innogy <- rbind(data.frame(hour = c(6:12, 15:21), 
+                            price.dn = 0.4166, 
+                            price.standard = 0.3930),
+                 data.frame(hour = c(0:5, 13:14, 22:23),
+                            price.dn = 0.3688, 
+                            price.standard = 0.3930)) %>% 
+  arrange(hour)
+
+taryfa_PGE <- rbind(data.frame(hour = c(6:12, 15:21), 
+                                  price.dn = 0.4039, 
+                                  price.standard = 0.3539),
+                       data.frame(hour = c(0:5, 13:14, 22:23),
+                                  price.dn = 0.2560, 
+                                  price.standard = 0.3539)) %>% 
+  arrange(hour)
+
+taryfa_Tauron <- rbind(data.frame(hour = c(6:12, 15:21), 
+                                  price.dn = 0.4797, 
+                                  price.standard = 0.4064),
+                       data.frame(hour = c(0:5, 13:14, 22:23),
+                                  price.dn = 0.2764, 
+                                  price.standard = 0.4064)) %>% 
+  arrange(hour)
+
+taryfa_Enea <- rbind(data.frame(hour = c(6:12, 15:21), 
+                                  price.dn = 0.4159, 
+                                  price.standard = 0.3569),
+                       data.frame(hour = c(0:5, 13:14, 22:23),
+                                  price.dn = 0.2697, 
+                                  price.standard = 0.3569)) %>% 
+  arrange(hour)
+
+taryfa_Energa <- rbind(data.frame(hour = c(6:12, 15:21), 
+                                  price.dn = 0.4584, 
+                                  price.standard = 0.3675),
+                       data.frame(hour = c(0:5, 13:14, 22:23),
+                                  price.dn = 0.3044, 
+                                  price.standard = 0.3675)) %>% 
+  arrange(hour)
+
+taryfy <- list(Innogy = taryfa_Innogy, PGE = taryfa_PGE, Tauron = taryfa_Tauron, Energa = taryfa_Energa, Enea = taryfa_Enea)
+
+for (i in 1:5) {
+  taryfa <- taryfy[[i]]
+  print(names(taryfy)[i])
+  
+  day_from <- 0
+  day_to <- 349
+  full_saving <- x[(1 + 60 * 24 * day_from):(60 * 24 * day_to), ] %>% 
+    select(use..kW., hour, month) %>% 
+    left_join(taryfa, by = "hour") %>% 
+    summarise(sum.dn = sum(use..kW. * price.dn / 60), 
+              sum.standard = sum(use..kW. * price.standard / 60)) %>% 
+    mutate(saving = sum.standard - sum.dn) %>% 
+    pull(saving)
+  print(full_saving)
+  
+  saving_montly <- x[(1 + 60 * 24 * day_from):(60 * 24 * day_to), ] %>% 
+    select(use..kW., hour, month) %>% 
+    left_join(taryfa, by = "hour") %>% 
+    group_by(month) %>% 
+    summarise(sum.dn = sum(use..kW. * price.dn / 60), 
+              sum.standard = sum(use..kW. * price.standard / 60)) %>% 
+    mutate(saving = sum.standard - sum.dn, month = month + 1) %>% 
+    select(month, saving)
+  print(saving_montly)
+}
+
