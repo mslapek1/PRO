@@ -81,13 +81,32 @@ bestOffer <- generateBestOffer()
 
 ui <- fluidPage(
   titlePanel("Jak dobrze radzę sobie z zużyciem prądu?"),
-  verbatimTextOutput("comment"),
+  # logo dostawcy
+  tags$b(imageOutput("zdjecie", width = "20%", height = "250px", inline = TRUE)),
+  # warunek 2 - czy obecna taryfa w porządku?
+  if(bestOffer$czyJestesNaDobrejTaryfie) {
+    tags$b(HTML("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #228B22;'><div>BRAWO!</div></br><div>Twój wybór dostawcy i taryfy są optymalne!</div></div>"))
+  },
+  if(bestOffer$czyJestesNaDobrejTaryfie) {
+    tags$b(imageOutput("zdjecie2", width = "20%", height = "250px", inline = TRUE))
+  },
+  # warunek 3 - jesli nie jest w porzadku to...
+  if(!bestOffer$czyJestesNaDobrejTaryfie) {
+    tags$b(HTML(paste0("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #FF0000;'><div>Jeśli miałbyś plan taryfowy",
+                       "<span style='color: cyan;'> ", bestOffer$taryfa, " </span>",
+                       "zaoszczędziłbyś...</div></br><div style='font-size: 80px; color: magenta;'>",
+                       bestOffer$kwota, " zł",
+                       "</div></br><div>w minionym roku(najlepsza oferta).</div></div>")))
+  },
+  if(!bestOffer$czyJestesNaDobrejTaryfie) {
+    tags$b(imageOutput("zdjecie3", width = "20%", height = "250px", inline = TRUE))
+  },
   headerPanel("Porównanie opłat w taryfach i operatorach"),
   fluidRow(
     column(3,
            checkboxGroupInput("operators", h3("Wybierz operatorów"),
-                              choices=c("PGE", "Tauron", "Innogy", "Energa", "Enea"),
-                              selected="PGE")
+                              choices = c("PGE", "Tauron", "Innogy", "Energa", "Enea"),
+                              selected = "PGE")
     ),
     column(9,
            selectInput("datesSC", h3("Wybierz zakres czasu"),
@@ -123,16 +142,42 @@ server <- function(input, output, session){
                                              origin = "1970-01-01"),
                                end = Sys.Date()))
   
-  output$comment <- reactive(input$dates)
   
   
   output$plot <- renderPlot({
     
-    ggplot(summary, aes(x = dostawca, y = koszt, fill = taryfa)) +
+    ggplot(generateSummary(input$dates[1], input$dates[2]), aes(x = dostawca, y = koszt, fill = taryfa)) +
       geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
       ylab("Opłaty za dany okres") + 
       xlab(NULL) 
   })
+  
+  output$zdjecie <- renderImage({
+    filename <- normalizePath(file.path('.',
+                                        paste('img/', ifelse(is.null(bestOffer$dostawcaNowy), 
+                                                             currentProvider, 
+                                                             bestOffer$dostawcaNowy), 
+                                              input$n, '.png', sep = '')))
+    
+    # Return a list containing the filename
+    list(src = filename, width = "18%", style = "float:left;", height = "15%")
+  }, deleteFile = FALSE)
+  
+  output$zdjecie2 <- renderImage({
+    filename <- normalizePath(file.path('.',
+                                        paste('img/HAPPY', input$n, '.png', sep='')))
+    
+    # Return a list containing the filename
+    list(src = filename, width = "18%", style = "float:left;", height = "15%")
+  }, deleteFile = FALSE)
+  
+  output$zdjecie3 <- renderImage({
+    filename <- normalizePath(file.path('.',
+                                        paste('img/EXCLAMATION_MARK', input$n, '.jpg', sep='')))
+    
+    # Return a list containing the filename
+    list(src = filename, width = "18%", style = "float:left;", height = "15%")
+  }, deleteFile = FALSE)
 
 }
 
