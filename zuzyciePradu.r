@@ -9,10 +9,12 @@ currentTariff <- "Standardowa"
 data <- read.csv("forBarplot_HomeC.csv")
 
 
-generateSummary <- function(date_from, date_to) {
+generateSummary <- function(date_from, date_to, 
+                            providers = c("PGE", "Tauron", "Energa", "Innogy", "Enea")) {
   date_from <- as.POSIXlt(date_from, format = "%Y-%m-%d")
   date_to <- as.POSIXlt(date_to, format = "%Y-%m-%d")
-  df <- data %>% filter(time >= date_from & time <= date_to)
+  df <- data %>% 
+    filter(time >= date_from & time <= date_to)
   
   df <- df %>% group_by(day, hour) %>% 
     summarise(use..kW. = sum(use..kW.)) %>% 
@@ -33,6 +35,7 @@ generateSummary <- function(date_from, date_to) {
   standard %>% 
     rbind(dn) %>% 
     rbind(weekendowa) %>% 
+    filter(dostawca %in% providers) %>% 
     ungroup()
 }
 
@@ -106,7 +109,7 @@ ui <- fluidPage(
     column(3,
            checkboxGroupInput("operators", h3("Wybierz operatorów"),
                               choices = c("PGE", "Tauron", "Innogy", "Energa", "Enea"),
-                              selected = "PGE")
+                              selected = c("PGE", "Tauron", "Innogy", "Energa", "Enea"))
     ),
     column(9,
            selectInput("datesSC", h3("Wybierz zakres czasu"),
@@ -119,11 +122,10 @@ ui <- fluidPage(
                           separator = " do ",
                           start = Sys.Date() - 6,
                           end = Sys.Date(),
-                          max = Sys.Date()),
-           plotOutput("plot"),
-           plotOutput("boxplot")
+                          max = Sys.Date())
     )
-  )
+  ),
+  plotOutput("plot")
 )
 
 server <- function(input, output, session){
@@ -132,7 +134,6 @@ server <- function(input, output, session){
   
   # output$comment - treść komentarza
   # output$plot - wykres kolumnowy
-  # output$boxplot - boxplot
   
   # linijka niżej służy do szybkiego ustawienia zakresu dat, więc proszę nie ruszać
   observe(updateDateRangeInput(session,
@@ -145,11 +146,10 @@ server <- function(input, output, session){
   
   
   output$plot <- renderPlot({
-    
-    ggplot(generateSummary(input$dates[1], input$dates[2]), aes(x = dostawca, y = koszt, fill = taryfa)) +
+    ggplot(generateSummary(input$dates[1], input$dates[2], input$operators), aes(x = dostawca, y = koszt, fill = taryfa)) +
       geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
       ylab("Opłaty za dany okres") + 
-      xlab(NULL) 
+      xlab(NULL)
   })
   
   output$zdjecie <- renderImage({
