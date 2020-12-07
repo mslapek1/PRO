@@ -140,3 +140,23 @@ points(df$day, pred, col="red", cex=0.1)
 
 summary(model_l)
 
+
+####test
+df_save <- df
+
+#reaches best adjR^2 in 120 days
+i<-20
+df_test <- df_save[(n-i):(n-1),]
+df_train <- df_save[(n-i*9):(n-i),]
+
+model_test <- lm(House_metering~cos_day_of_year_in_rad,df_train)
+
+df_test$predicted <- predict(model_test, df_test[,c("cos_day_of_year_in_rad")])
+
+plot(df_test$day, df_test$House_metering,
+     main="model in red")
+points(df_test$day, df_test$predicted, col="red", cex=0.1)
+
+diff_pred <- abs( df_test$predicted - df_test$House_metering)
+
+plot(diff_pred)
