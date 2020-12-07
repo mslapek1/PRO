@@ -6,6 +6,8 @@ library(RColorBrewer)
 source("taryfy.R")
 currentProvider <- "Tauron"
 currentTariff <- "Standardowa"
+# currentProvider <- "PGE"
+# currentTariff <- "Nocna"
 data <- read.csv("forBarplot_HomeC.csv")
 
 
@@ -85,24 +87,25 @@ bestOffer <- generateBestOffer()
 ui <- fluidPage(
   titlePanel("Jak dobrze radzę sobie z zużyciem prądu?"),
   # logo dostawcy
-  tags$b(imageOutput("zdjecie", width = "20%", height = "250px", inline = TRUE)),
+  imageOutput("zdjecie", width = "20%", height = "250px", inline = TRUE),
   # warunek 2 - czy obecna taryfa w porządku?
   if(bestOffer$czyJestesNaDobrejTaryfie) {
     tags$b(HTML("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #228B22;'><div>BRAWO!</div></br><div>Twój wybór dostawcy i taryfy są optymalne!</div></div>"))
   },
   if(bestOffer$czyJestesNaDobrejTaryfie) {
-    tags$b(imageOutput("zdjecie2", width = "20%", height = "250px", inline = TRUE))
+    imageOutput("zdjecie2", width = "20%", height = "250px", inline = TRUE)
   },
   # warunek 3 - jesli nie jest w porzadku to...
   if(!bestOffer$czyJestesNaDobrejTaryfie) {
     tags$b(HTML(paste0("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #FF0000;'><div>Jeśli miałbyś plan taryfowy",
                        "<span style='color: cyan;'> ", bestOffer$taryfa, " </span>",
+                       if(bestOffer$dostawcaNowy != currentProvider) {paste0("w <span style='color: cyan;'> ", bestOffer$dostawcaNowy, " </span>")},
                        "zaoszczędziłbyś...</div></br><div style='font-size: 80px; color: magenta;'>",
                        bestOffer$kwota, " zł",
-                       "</div></br><div>w minionym roku(najlepsza oferta).</div></div>")))
+                       "</div></br><div>w minionym roku.</div><div style='font-weight: normal; font-size: 15px; color: gray; text-align: right;'>(najlepsza oferta)</div></div>")))
   },
   if(!bestOffer$czyJestesNaDobrejTaryfie) {
-    tags$b(imageOutput("zdjecie3", width = "20%", height = "250px", inline = TRUE))
+    imageOutput("zdjecie3", width = "20%", height = "250px", inline = TRUE)
   },
   headerPanel("Porównanie opłat w taryfach i operatorach"),
   fluidRow(
@@ -149,7 +152,8 @@ server <- function(input, output, session){
     ggplot(generateSummary(input$dates[1], input$dates[2], input$operators), aes(x = dostawca, y = koszt, fill = taryfa)) +
       geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
       ylab("Opłaty za dany okres") + 
-      xlab(NULL)
+      xlab(NULL) + 
+      theme(text = element_text(size = 24))
   })
   
   output$zdjecie <- renderImage({
