@@ -4,11 +4,14 @@ library(ggplot2)
 library(RColorBrewer)
 
 source("taryfy.R")
-currentProvider <- "Tauron"
+# currentProvider <- "Tauron"
+# currentTariff <- "Standardowa"
+currentProvider <- "PGE"
 currentTariff <- "Standardowa"
-# currentProvider <- "PGE"
-# currentTariff <- "Nocna"
 data <- read.csv("forBarplot_HomeC.csv")
+
+
+
 
 
 generateSummary <- function(date_from, date_to, 
