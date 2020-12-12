@@ -138,7 +138,9 @@ ui <- fluidPage(
                         "ostatni tydzień" = 2,
                         "ostatni miesiąc" = 3)),
   plotOutput("plot2"),
-  uiOutput("commentary")
+  uiOutput("commentary"),
+  headerPanel("Porada"),
+  uiOutput("advice")
 )
 
 server <- function(input, output, session){
@@ -150,6 +152,7 @@ server <- function(input, output, session){
   # NOWE:
   # output$plot2 - wykres zużycia prądu w porównaniu z przewidzianym
   # zmienne weekPart i predPart (w tym momencie linijki 201-202)
+  # output$advice - miejsce na porady
   
   # interaktywne ustawienie zakresu dat
   observe(updateDateRangeInput(session,
@@ -233,6 +236,10 @@ server <- function(input, output, session){
                        ifelse(weekPart<=1 & predPart<=1,
                               " Brawo, oby tak dalej :)", "")
     )))
+  })
+  
+  output$advice <- renderUI({
+    # tu wchodzi HTML
   })
 }
 
