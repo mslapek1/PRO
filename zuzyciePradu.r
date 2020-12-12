@@ -9,7 +9,7 @@ source("taryfy.R")
 currentProvider <- "PGE"
 currentTariff <- "Standardowa"
 data <- read.csv("forBarplot_HomeC.csv")
-
+data$time2 <- as.POSIXct(data$time, format="%Y-%m-%d")
 
 
 
@@ -19,11 +19,11 @@ generateSummary <- function(date_from, date_to,
   date_from <- as.POSIXlt(date_from, format = "%Y-%m-%d")
   date_to <- as.POSIXlt(date_to, format = "%Y-%m-%d")
   df <- data %>% 
-    filter(time >= date_from & time <= date_to)
+    filter(time2 >= date_from & time2 <= date_to)
   
-  df <- df %>% group_by(day, hour) %>% 
-    summarise(use..kW. = sum(use..kW.)) %>% 
-    mutate(day = day + 1)
+  df <- df %>% mutate(day = day + 1) %>% 
+    group_by(day, hour) %>%
+    summarise(use..kW. = sum(use..kW.))
   
   standard <- df %>% left_join(standard, by = "hour") %>% 
     group_by(taryfa, dostawca) %>% 
@@ -50,11 +50,11 @@ generateBestOffer <- function() {
   ourPrice <- summary %>%
     filter(taryfa == currentTariff & dostawca == currentProvider) %>%
     pull(koszt)
-
+  
   summary <- summary %>%
     filter(taryfa != currentTariff, dostawca != currentProvider) %>%
     mutate(saving = ourPrice - koszt)
-
+  
   # inside our provider
   insideProvider <- summary %>%
     filter(dostawca == currentProvider, saving > 120) %>%
@@ -131,22 +131,32 @@ ui <- fluidPage(
                           max = Sys.Date())
     )
   ),
-  plotOutput("plot")
+  plotOutput("plot"),
+  headerPanel("Progres zużycia prądu"),
+  selectInput("dates2", h3("Wybierz zakres czasu"),
+              choices=c("ostatni dzień" = 1,
+                        "ostatni tydzień" = 2,
+                        "ostatni miesiąc" = 3)),
+  plotOutput("plot2"),
+  uiOutput("commentary")
 )
 
 server <- function(input, output, session){
   # input$operators - wybrani operatorzy
   # input$dates - wektor składający się z dwóch dat wyznaczonych w inpucie
-  
   # output$comment - treść komentarza
   # output$plot - wykres kolumnowy
   
-  # linijka niżej służy do szybkiego ustawienia zakresu dat, więc proszę nie ruszać
+  # NOWE:
+  # output$plot2 - wykres zużycia prądu w porównaniu z przewidzianym
+  # zmienne weekPart i predPart (w tym momencie linijki 201-202)
+  
+  # interaktywne ustawienie zakresu dat
   observe(updateDateRangeInput(session,
                                "dates",
                                start = as.Date(ifelse(input$datesSC == 1, Sys.Date() - 7,
-                                                    ifelse(input$datesSC == 2, Sys.Date() - 31, Sys.Date() - 365)),
-                                             origin = "1970-01-01"),
+                                                      ifelse(input$datesSC == 2, Sys.Date() - 31, Sys.Date() - 365)),
+                                               origin = "1970-01-01"),
                                end = Sys.Date()))
   
   
@@ -185,7 +195,45 @@ server <- function(input, output, session){
     # Return a list containing the filename
     list(src = filename, width = "18%", style = "float:left;", height = "15%")
   }, deleteFile = FALSE)
-
+  
+  
+  # WAŻNE
+  weekPart <- 0.25
+  predPart <- 0.36
+  # weekPart - jaką część energii zużytej w POPRZEDNIM dniu/tygodniu/roku stanowi energia zużyta w tym d./t./r.
+  # predPart - jaką część energii PRZEWIDZIANEJ do zużycia stanowi energia zużyta w tym d./t./r.
+  
+  # wartości obu zmiennych są na razie przykładowe, 
+  # należy zmienić je na te ustawiane funkcjami
+  
+  # komentarz na dole
+  okres <- function(){
+    return(ifelse(input$dates2==1, "dniu",
+                  ifelse(input$dates2==2, "tygodniu", "miesiącu")))
+  }
+  ileEnergii <- function(x){
+    return(ifelse(x==1,
+                  "tyle samo energii, co",
+                  paste0("o ",
+                         round(abs(1-x)*100),
+                         "% ",
+                         ifelse(x<1,
+                                "mniej",
+                                "więcej"),
+                         " energii niż")))
+    
+  }
+  
+  output$commentary <- renderUI({
+    tags$p(HTML(paste0("W tym ", okres(), " zużyłeś ",
+                       ileEnergii(weekPart),
+                       " w poprzednim ", okres(), " i ",
+                       ileEnergii(predPart),
+                       " normalnie.",
+                       ifelse(weekPart<=1 & predPart<=1,
+                              " Brawo, oby tak dalej :)", "")
+    )))
+  })
 }
 
 shinyApp(ui = ui, server = server)
