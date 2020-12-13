@@ -9,9 +9,7 @@ source("taryfy.R")
 currentProvider <- "PGE"
 currentTariff <- "Standardowa"
 data <- read.csv("forBarplot_HomeC.csv")
-data$time2 <- as.POSIXct(data$time, format="%Y-%m-%d")
-
-
+data$time2 <- as.POSIXct(data$time, format ="%Y-%m-%d")
 
 
 generateSummary <- function(date_from, date_to, 
@@ -37,11 +35,26 @@ generateSummary <- function(date_from, date_to,
     group_by(taryfa, dostawca) %>% 
     summarise(koszt = sum(use..kW. * price / 60))
   
-  standard %>% 
+  data <- standard %>% 
     rbind(dn) %>% 
     rbind(weekendowa) %>% 
-    filter(dostawca %in% providers) %>% 
     ungroup()
+  
+  y_saving <- data %>% 
+    filter(dostawca == currentProvider, taryfa == currentTariff) %>% 
+    pull(koszt)
+  
+  data <- data %>% mutate(difference = koszt - y_saving) %>%
+    mutate(kolor = ifelse(difference < 0, "green", "red")) %>% 
+    mutate(difference = ifelse(difference >= 0, 
+                               paste0("+", round(difference, 0), " zł"), 
+                               paste0(as.character(round(difference, 0))," zł")))
+  data$kolor[data$dostawca == currentProvider & data$taryfa == currentTariff] <- "black"
+  data$difference <- ifelse(data$dostawca == currentProvider & data$taryfa == currentTariff, 
+                            paste0(round(y_saving, 0), " zł"), 
+                            data$difference)
+  data %>% 
+    filter(dostawca %in% providers)
 }
 
 generateBestOffer <- function() {
@@ -119,7 +132,7 @@ ui <- fluidPage(
     ),
     column(9,
            selectInput("datesSC", h3("Wybierz zakres czasu"),
-                       choices=c("ostatni tydzień" = 1,
+                       choices = c("ostatni tydzień" = 1,
                                  "ostatni miesiąc" = 2,
                                  "ostatni rok" = 3)),
            dateRangeInput("dates", h4("dokładny zakres"),
@@ -134,7 +147,7 @@ ui <- fluidPage(
   plotOutput("plot"),
   headerPanel("Progres zużycia prądu"),
   selectInput("dates2", h3("Wybierz zakres czasu"),
-              choices=c("ostatni dzień" = 1,
+              choices = c("ostatni dzień" = 1,
                         "ostatni tydzień" = 2,
                         "ostatni miesiąc" = 3)),
   plotOutput("plot2"),
@@ -162,14 +175,42 @@ server <- function(input, output, session){
                                                origin = "1970-01-01"),
                                end = Sys.Date()))
   
-  
-  
   output$plot <- renderPlot({
-    ggplot(generateSummary(input$dates[1], input$dates[2], input$operators), aes(x = dostawca, y = koszt, fill = taryfa)) +
-      geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) +
-      ylab("Opłaty za dany okres") + 
-      xlab(NULL) + 
-      theme(text = element_text(size = 24))
+    data <- generateSummary(input$dates[1], input$dates[2], input$operators)
+    
+    y_saving <- data %>% 
+      filter(dostawca == currentProvider, taryfa == currentTariff) %>% 
+      pull(koszt)
+    
+    ggplot(data, aes(x = dostawca, y = koszt, fill = taryfa, label = difference, color = kolor)) +
+      geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) + 
+      geom_hline(yintercept = y_saving, linetype = "dashed") +
+      # annotate(
+      #   "text",
+      #   x = 2, y = y_saving + 20,
+      #   label = "Twoja taryfa",
+      #   vjust = 0, hjust = 0, size = 6, color = "grey20"
+      # ) +
+      # annotate(
+      #   "curve",
+      #   x = 2, y = y_saving + 10,   # tutaj x powinien byc levelsem dla PGE + 0.2
+      #   xend = 2, yend = y_saving,   # tutaj x powinien byc levelsem dla PGE
+      #   arrow = arrow(length = unit(0.3, "cm"), type = "closed"),
+      #   color = "grey20"
+      # ) +
+      geom_text(position = position_dodge(width = 0.9), 
+                size = 7, vjust = -0.25, show.legend = FALSE) +
+      scale_colour_manual(values = c("green" = "darkgreen", "red" = "#d41b56", "black" = "#000000")) +
+      theme(panel.grid.major.y = element_line(color = "lightgray"),
+            panel.grid.major.x = element_blank(),
+            panel.background = element_blank(),
+            text = element_text(size = 25),
+            axis.title.x = element_blank()
+      ) +
+      ylab("Opłata [zł]") +
+      scale_fill_manual(name = "Taryfa", 
+                        values = c("Standardowa" = "#ffff99", "Nocna" = "#beaed4", "Weekendowa" = "#80b1d3")) +
+      guides(color = FALSE)
   })
   
   output$zdjecie <- renderImage({
