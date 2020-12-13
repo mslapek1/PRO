@@ -4,16 +4,15 @@ library(ggplot2)
 library(RColorBrewer)
 
 source("taryfy.R")
-# currentProvider <- "Tauron"
-# currentTariff <- "Standardowa"
-currentProvider <- "PGE"
-currentTariff <- "Standardowa"
+# currentProvider <- "Innogy"
+# currentTariff <- "Weekendowa"
+currentProvider <- "Tauron"
+currentTariff <- "Weekendowa"
 data <- read.csv("forBarplot_HomeC.csv")
-data$time2 <- as.POSIXct(data$time, format ="%Y-%m-%d")
+data$time2 <- as.POSIXct(data$time, format = "%Y-%m-%d")
 
 
-generateSummary <- function(date_from, date_to, 
-                            providers = c("PGE", "Tauron", "Energa", "Innogy", "Enea")) {
+generateSummary <- function(date_from, date_to) {
   date_from <- as.POSIXlt(date_from, format = "%Y-%m-%d")
   date_to <- as.POSIXlt(date_to, format = "%Y-%m-%d")
   df <- data %>% 
@@ -53,8 +52,7 @@ generateSummary <- function(date_from, date_to,
   data$difference <- ifelse(data$dostawca == currentProvider & data$taryfa == currentTariff, 
                             paste0(round(y_saving, 0), " zł"), 
                             data$difference)
-  data %>% 
-    filter(dostawca %in% providers)
+  data
 }
 
 generateBestOffer <- function() {
@@ -65,63 +63,47 @@ generateBestOffer <- function() {
     pull(koszt)
   
   summary <- summary %>%
-    filter(taryfa != currentTariff, dostawca != currentProvider) %>%
+    filter(taryfa != currentTariff | dostawca != currentProvider) %>%
     mutate(saving = ourPrice - koszt)
   
-  # inside our provider
-  insideProvider <- summary %>%
-    filter(dostawca == currentProvider, saving > 120) %>%
-    arrange(desc(saving))
-  if (nrow(insideProvider) >= 1) {
-    return(insideProvider)
-    return(list(czyJestesNaDobrejTaryfie = FALSE,
-                taryfa = insideProvider[[1, "taryfa"]],
-                kwota = round(insideProvider[[1, "saving"]]),
-                dostawcaNowy = NULL))
-  } else {
-    # outside our provider
-    outsideProvider <- summary %>%
-      filter(dostawca != currentProvider, saving > 360) %>%
-      arrange(desc(saving))
-    if (nrow(outsideProvider) >= 1) {
-      return(list(czyJestesNaDobrejTaryfie = FALSE,
-                  taryfa = outsideProvider[[1, "taryfa"]],
-                  kwota = round(outsideProvider[[1, "saving"]]),
-                  dostawcaNowy = outsideProvider[[1, "dostawca"]]))
-    } else {
-      # no good change possible
-      return(list(czyJestesNaDobrejTaryfie = TRUE,
-                  taryfa = currentTariff,
-                  kwota = 0,
-                  dostawcaNowy = NULL))
-    }
-  }
+  return(summary %>% filter(saving > 0) %>% slice_max(saving, n = 2))
 }
 
 bestOffer <- generateBestOffer()
 
 ui <- fluidPage(
-  titlePanel("Jak dobrze radzę sobie z zużyciem prądu?"),
-  # logo dostawcy
-  imageOutput("zdjecie", width = "20%", height = "250px", inline = TRUE),
+  titlePanel("Jak dobrze radzę sobie ze zużyciem prądu?"),
+  
   # warunek 2 - czy obecna taryfa w porządku?
-  if(bestOffer$czyJestesNaDobrejTaryfie) {
-    tags$b(HTML("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #228B22;'><div>BRAWO!</div></br><div>Twój wybór dostawcy i taryfy są optymalne!</div></div>"))
+  if(nrow(bestOffer) == 0) {
+    HTML("<br/><div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #228B22;'><br/><div><b>BRAWO!</b></div></br></br><div>Twój wybór dostawcy i taryfy są optymalne!</div><div>Żadna inna oferta nie zapewniłaby Ci niższych rachunków.</div><br/></div>")
   },
-  if(bestOffer$czyJestesNaDobrejTaryfie) {
-    imageOutput("zdjecie2", width = "20%", height = "250px", inline = TRUE)
+  if(nrow(bestOffer) == 0) {
+    imageOutput("zdjecie2", width = "20%", height = "100px", inline = TRUE)
   },
   # warunek 3 - jesli nie jest w porzadku to...
-  if(!bestOffer$czyJestesNaDobrejTaryfie) {
-    tags$b(HTML(paste0("<div style='text-align:center;float:left; font-size: 30px; width: 62%; border: 5px solid #FF0000;'><div>Jeśli miałbyś plan taryfowy",
-                       "<span style='color: cyan;'> ", bestOffer$taryfa, " </span>",
-                       if(bestOffer$dostawcaNowy != currentProvider) {paste0("w <span style='color: cyan;'> ", bestOffer$dostawcaNowy, " </span>")},
-                       "zaoszczędziłbyś...</div></br><div style='font-size: 80px; color: magenta;'>",
-                       bestOffer$kwota, " zł",
-                       "</div></br><div>w minionym roku.</div><div style='font-weight: normal; font-size: 15px; color: gray; text-align: right;'>(najlepsza oferta)</div></div>")))
+  if(nrow(bestOffer) > 0) {
+    HTML(paste0("<br/><div style='text-align:center;float:left; font-size: 30px; width: 80%; border: 5px solid #FF0000;'>",
+                "<br/>",
+                "Jeśli miałbyś plan taryfowy",
+                       "<span style='font-weight: bold; color: #40e0d0;'> \"", bestOffer$taryfa[1], "\" </span>",
+                       if(bestOffer$dostawca[1] != currentProvider) {paste0("w <span style='font-weight: bold; color: #00ced1;'> ", bestOffer$dostawca[1], " </span>")},
+                       "zaoszczędziłbyś <span style='font-weight: bold; color: magenta;'>",
+                       round(bestOffer$saving[1], 2), " zł",
+                       "</span> w minionym roku.", 
+                if(nrow(bestOffer) > 1) {
+                  paste0("<br/><br/><br/>",
+                    "Jeśli miałbyś plan taryfowy",
+                    "<span style='font-weight: bold; color: #40e0d0;'> \"", bestOffer$taryfa[2], "\" </span>",
+                    if(bestOffer$dostawca[2] != currentProvider) {paste0("w <span style='font-weight: bold; color: #00ced1;'> ", bestOffer$dostawca[2], " </span>")},
+                    "zaoszczędziłbyś <span style='font-weight: bold; color: magenta;'>",
+                    round(bestOffer$saving[2], 2), " zł",
+                    "</span> w minionym roku.")
+                }, 
+                "<br/><br/></div>"))
   },
-  if(!bestOffer$czyJestesNaDobrejTaryfie) {
-    imageOutput("zdjecie3", width = "20%", height = "250px", inline = TRUE)
+  if(nrow(bestOffer) > 0) {
+    imageOutput("zdjecie3", width = "20%", height = "100px", inline = TRUE)
   },
   headerPanel("Porównanie opłat w taryfach i operatorach"),
   fluidRow(
@@ -176,29 +158,48 @@ server <- function(input, output, session){
                                end = Sys.Date()))
   
   output$plot <- renderPlot({
-    data <- generateSummary(input$dates[1], input$dates[2], input$operators)
+    data <- generateSummary(input$dates[1], input$dates[2])
     
     y_saving <- data %>% 
       filter(dostawca == currentProvider, taryfa == currentTariff) %>% 
       pull(koszt)
     
+    data <- data %>% 
+      filter(dostawca %in% input$operators)
+    
+    data$dostawca <- as.factor(data$dostawca)
+    #data$taryfa <- as.factor(data$taryfa)
+    x_base <- which(levels(data$dostawca) == currentProvider) # currentProvider
+    aux <- data %>% filter(dostawca == currentProvider) %>% nrow()
+    # dla aux = 2 troche slaby algorytm
+    if(aux == 2){
+      if(currentTariff == "Nocna") x_base <- x_base - 0.125
+      if(currentTariff == "Standardowa") x_base <- x_base + 0.125 # ?? zalozenie ze nie ma weekendowej
+      if(currentTariff == "Weekendowa") x_base <- x_base + 0.125
+    }
+    if(aux == 3){
+      if(currentTariff == "Nocna") x_base <- x_base - 0.25
+      if(currentTariff == "Weekendowa") x_base <- x_base + 0.25
+    }
+    
     ggplot(data, aes(x = dostawca, y = koszt, fill = taryfa, label = difference, color = kolor)) +
       geom_bar(stat = "identity", width = 0.7, position = position_dodge(width = 0.8)) + 
       geom_hline(yintercept = y_saving, linetype = "dashed") +
-      # annotate(
-      #   "text",
-      #   x = 2, y = y_saving + 20,
-      #   label = "Twoja taryfa",
-      #   vjust = 0, hjust = 0, size = 6, color = "grey20"
-      # ) +
-      # annotate(
-      #   "curve",
-      #   x = 2, y = y_saving + 10,   # tutaj x powinien byc levelsem dla PGE + 0.2
-      #   xend = 2, yend = y_saving,   # tutaj x powinien byc levelsem dla PGE
-      #   arrow = arrow(length = unit(0.3, "cm"), type = "closed"),
-      #   color = "grey20"
-      # ) +
-      geom_text(position = position_dodge(width = 0.9), 
+      annotate(
+        "text",
+        x = x_base + 0.02, y = y_saving * 1.2,
+        label = "Twoja taryfa",
+        vjust = 0, hjust = 0, size = 6.5, color = "grey20",
+        fontface = "bold"
+      ) +
+      annotate(
+        "curve",
+        x = x_base, y = y_saving * 1.2,   
+        xend = x_base, yend = y_saving * 1.09, 
+        arrow = arrow(length = unit(0.4, "cm"), type = "closed"),
+        color = "grey20"
+      ) +
+      geom_text(position = position_dodge(width = 0.8), 
                 size = 7, vjust = -0.25, show.legend = FALSE) +
       scale_colour_manual(values = c("green" = "darkgreen", "red" = "#d41b56", "black" = "#000000")) +
       theme(panel.grid.major.y = element_line(color = "lightgray"),
