@@ -11,14 +11,15 @@ currentTariff <- "Weekendowa"
 
 
 
-
-
-
-
-
 data <- read.csv("domek_we_francji.csv")
 names(data)[2] <-"time"
 data$time2 <- as.POSIXct(data$time, format = "%Y-%m-%d")
+data$time <- as.character( as.POSIXct( paste( data$time, data$hour), format = "%Y-%m-%d %H"))
+data <- data %>% select( X, time, use..kW., day, hour, time2)
+
+#do porównania poprzednie dane z domk w indiach
+data_1 <- read.csv("forBarplot_HomeC.csv")
+data_1$time2 <- as.POSIXct(data_1$time, format = "%Y-%m-%d")
 
 #agregation by day
 data_to_model <- data
