@@ -356,8 +356,10 @@ server <- function(input, output, session){
     )))
   })
   
+  porady <- c(as.matrix(read.table("porady.txt", header=F, sep=';'))[1:17])
+  
   output$advice <- renderUI({
-    # tu wchodzi HTML
+    tags$p(HTML(paste0(sample(porady, 1), ".")))
   })
 }
 
