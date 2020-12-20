@@ -2,6 +2,7 @@ library(shiny)
 library(dplyr)
 library(ggplot2)
 library(RColorBrewer)
+library(lubridate)
 
 source("taryfy.R")
 # currentProvider <- "Innogy"
@@ -13,8 +14,8 @@ currentTariff <- "Weekendowa"
 
 data <- read.csv("domek_we_francji.csv")
 names(data)[2] <-"time"
-data$time2 <- as.POSIXct(data$time, format = "%Y-%m-%d")
-data$time <- as.character( as.POSIXct( paste( data$time, data$hour), format = "%Y-%m-%d %H"))
+data$time2 <- as.POSIXct(data$time, format = "%Y-%m-%d") + ((10 * 365 + 2 + 31*2) * 24 * 60 * 60) # aktualnie konczy sie na 26.01.2021
+data$time <- as.character(data$time2)
 data <- data %>% select( X, time, use..kW., day, hour, time2)
 
 #do porównania poprzednie dane z domk w indiach
