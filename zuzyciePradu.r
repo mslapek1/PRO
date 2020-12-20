@@ -311,10 +311,31 @@ server <- function(input, output, session){
   ##### Progres zużycia prądu
   #GGPLOT DO POTRAWY TODO
   output$plot2 <- renderPlot({
-    ggplot( tail(data_model(),360), aes( time),
-           main="model in red") +
-      geom_point( aes( y= use..kW.)) +
-      geom_point( aes( y= prediction), color="red")
+    
+    cols <- c("black", "#d41b56")
+    ggplot( tail(data_model(),360), aes( x = time)) +
+      geom_point( aes( y= use..kW., color = "c1")) +
+      #geom_smooth( aes( y= prediction, color = "c2"), se = FALSE, method = "lm", formula = y ~ splines::ns(x, 20)) +
+      geom_point( aes( y= prediction, color = "c2"), size = 2) +
+      scale_color_manual(name = "Zużycie prądu:",
+                         breaks = c("c1", "c2"),
+                         values = cols,
+                         labels = c("rzeczywiste", "przewidywane")) +
+      theme(panel.grid.major.y = element_line(color = "lightgray"),
+            panel.grid.major.x = element_blank(),
+            panel.background = element_blank(),
+            text = element_text(size = 25),
+            axis.title.x = element_blank(),
+            legend.position = "right",
+            plot.title = element_text(hjust=0.5),
+            legend.key = element_rect(fill = "white", color = NA),
+            legend.key.size = unit(3,"point"),
+            legend.background = element_blank(),
+            legend.box.background = element_rect(colour = "black")) + 
+      labs(x = "Okres czasu", y = "Zużycie energii [kW/h]") + 
+      scale_y_continuous(labels = scales::comma_format()) +
+      guides(color = guide_legend(override.aes = list(size = 2))) +
+      ggtitle("Przewidywane i rzeczywiste zużycie prądu")
   })
   
   
